@@ -45,7 +45,7 @@ def is_authorized(auth_required=False, super_auth_required=False):
             string_token = token.encode('ascii', 'ignore')
             user = verify_token(string_token)
 
-            if user and (user.is_super_user or not super_auth_required):
+            if user and (user['is_superuser'] or not super_auth_required):
                 g.current_user = user
                 return True
         return False 
@@ -56,11 +56,15 @@ def api_post(endpoint, auth_required=False, super_auth_required=False):
         @wraps(f)
         def wrapper(*args, **kwargs):
             if (is_authorized(auth_required, super_auth_required)):
-                incoming = request.get_json()
-                kwargs.update(incoming)
+                incoming = request.get_json(silent=True)
+                if incoming is not None:
+                    kwargs.update(incoming)
 
                 try:
-                    return f(*args, **kwargs)
+                    returned = f(*args, **kwargs)
+                    if returned == None:
+                        return Okay(None)
+                    return returned
                 except TypeError:
                     return Failed('bad_args', 'Incorrect Arguments')
             else:
